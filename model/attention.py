@@ -3,15 +3,19 @@ import torch.nn as nn
 import math
 
 
-def dot_product_attention(q, k, v):
+def dot_product_attention(q, k, v, attn_mask=None):
     """
     Function that computes dot product attention between
     query, key, value vectors
     """
-    # TODO, ADD MASKING
     c = q.shape[-1]
     attn = torch.matmul(q, k.transpose(-1, -2)) / math.sqrt(c)
+
+    if attn_mask is not None:
+        attn = attn.masked_fill(attn_mask, float("-inf"))
+
     attn = attn.softmax(dim=-1)
+
     output = torch.matmul(attn, v)
     return output, attn
 
@@ -58,6 +62,7 @@ class MultiHeadAxialAttention(nn.Module):
 
     def forward(self, q, k, v):
         bs = q.shape[0]  # batch size
+        N = q.shape[1]
 
         """
         Firstly, vectors are changed to be of dimension
@@ -69,11 +74,10 @@ class MultiHeadAxialAttention(nn.Module):
         if column attention,
         so we can do matrix multiplication
         """
-        q = self.to_q(q).view(bs, -1, self.num_heads,
+        q = self.to_q(q).view(bs, N, N, self.num_heads,
                               self.c_head).transpose(-2, -3)
-        k = self.to_k(k).view(bs, -1,
-                              self.num_heads, self.c_head).transpose(-2, -3)
-        v = self.to_v(v).view(bs, -1,
+        k = self.to_k(k).view(bs, N, N,                        self.num_heads, self.c_head).transpose(-2, -3)
+        v = self.to_v(v).view(bs, N, N,
                               self.num_heads, self.c_head).transpose(-2, -3)
 
         # additional transposition needed for column attention
@@ -88,7 +92,7 @@ class MultiHeadAxialAttention(nn.Module):
         if not self.row:
             output = output.transpose(-2, -4)
 
-        output = output.transpose(-2, -3).contiguous().view(bs, -1,
+        output = output.transpose(-2, -3).contiguous().view(bs, N, N,
                                                             self.num_heads *
                                                             self.c_head)
         output = self.out_proj(output)
