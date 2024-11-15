@@ -11,11 +11,10 @@ class Embedder(nn.Module):
     Expected input size of adjacency matrix: (batch, N, N)
     Expected output size: (batch, N, N, embedding_dim)
     """
-    def __init__(self, N: int, embedd_size: int, edge_types: int,
+    def __init__(self, embedd_size: int, edge_types: int,
                  bin_size: int):
         """
         Arguments:
-            - N: int => dimensions of ajdacency matrix
             - embedd_size: int => embedding dimension
             - edge_types: int => number of distinct values
             (distinct edge types) in the adjacency matrix.
@@ -25,6 +24,8 @@ class Embedder(nn.Module):
         """
         super(Embedder, self).__init__()
 
+        self.bin_size = bin_size
+
         # initial embedder of the adjacency matrix
         self.embedding_binary = nn.Embedding(num_embeddings=edge_types,
                                              embedding_dim=embedd_size)
@@ -32,14 +33,16 @@ class Embedder(nn.Module):
         self.embedding_positional = nn.Embedding(num_embeddings=2*bin_size+1,
                                                  embedding_dim=embedd_size)
 
+    def forward(self, x):
+
         # creation of relative positional matrix
+        N = x.shape[-1]
         indices = torch.arange(N)
         relative_positions = indices[None, :] - indices[:, None]
-        self.positional_encode = torch.clamp(relative_positions, -bin_size,
-                                             bin_size)
-        self.positional_encode = self.positional_encode + bin_size
-
-    def forward(self, x):
+        self.positional_encode = torch.clamp(relative_positions,
+                                             -self.bin_size, self.bin_size)
+        self.positional_encode = self.positional_encode + self.bin_size
+        print(self.positional_encode)
         binary_embedd = self.embedding_binary(x)
         positional_embedd = self.embedding_positional(self.positional_encode)
         out = binary_embedd + positional_embedd
