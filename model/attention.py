@@ -12,8 +12,8 @@ def dot_product_attention(q, k, v, attn_mask=None, dropout=None):
     attn = torch.matmul(q, k.transpose(-1, -2)) / math.sqrt(c)
 
     if attn_mask is not None:
-        attn = attn.masked_fill(attn_mask, float("-inf"))
-
+        attn = attn.masked_fill(attn_mask == 0, float("-1e34"))
+        # i use a large number instead of -inf, so the softmax survives
     attn = attn.softmax(dim=-1)
     if dropout is not None:
         attn = dropout(attn)
@@ -86,11 +86,17 @@ class MultiHeadAxialAttention(nn.Module):
         v = self.to_v(v).view(bs, N, N,
                               self.num_heads, self.c_head).transpose(-2, -3)
 
+        # mask needs to be broadcast to correct shape
+        if attn_mask is not None:
+            attn_mask = attn_mask[:, :, None, None, :]
+
         # additional transposition needed for column attention
         if not self.row:
             q = q.transpose(-2, -4)
             k = k.transpose(-2, -4)
             v = v.transpose(-2, -4)
+            if attn_mask is not None:
+                attn_mask = attn_mask.transpose(-1, -4)
 
         output, attn = dot_product_attention(q, k, v, attn_mask,
                                              self.attention_dropout)

@@ -22,18 +22,18 @@ class Model(nn.Module):
                                fc_bias=False, fc_dropout=0)
 
     def forward(self, matrix, seq, attn_mask_enc=None, attn_mask_dec=None):
-        enc = self.encoder(matrix)
+        enc = self.encoder(matrix, attn_mask_enc)
         out = self.decoder(seq, enc, attn_mask_dec)
-        return enc
+        return out
 
 
 matrix = torch.randn((10, 10, 10, 25))
 seq = torch.randn((10, 10, 25))
-attn_mask_dec = torch.triu(torch.ones(10, 10, dtype=torch.bool),
-                           diagonal=1)
-attn_mask_enc = torch.zeros(10, 10, dtype=torch.bool)  # there is a problem with this approach to masking, will need to discuss
-attn_mask_enc[-1, :] = True
-attn_mask_enc[:, -1] = True
+attn_mask_dec = torch.tril(torch.ones(10, 10, dtype=torch.bool),
+                           diagonal=0)
+attn_mask_enc = torch.ones(10, 10, dtype=torch.bool)
+attn_mask_enc[-1, :] = False
+attn_mask_enc[:, -1] = False
+attn_mask_enc = attn_mask_enc.unsqueeze(0)
 model = Model()
 out = model(matrix, seq, attn_mask_enc, attn_mask_dec)
-print(out.shape)
