@@ -12,7 +12,7 @@ def dot_product_attention(q, k, v, attn_mask=None, dropout=None):
     attn = torch.matmul(q, k.transpose(-1, -2)) / math.sqrt(c)
 
     if attn_mask is not None:
-        attn = attn.masked_fill(attn_mask == 0, float("-1e34"))
+        attn = attn.masked_fill(attn_mask == 0, -1e34)
         """
         A large number is used instead of softmax,
         to prevent nan values if entire row or column is padding,

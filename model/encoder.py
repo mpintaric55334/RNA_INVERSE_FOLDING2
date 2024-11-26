@@ -174,7 +174,7 @@ class EncoderOutputReduction:
     This is not compatible
     """
 
-    def __init__(self, reduction: str):
+    def __init__(self, reduction: int | tuple[int, int]):
         """
         Arguments:
             - reduction: type of encoder output reduction,
@@ -196,9 +196,11 @@ class EncoderOutputReduction:
             mask = mask.unsqueeze(-1)
             # after shape is (bs,N,N,1), compatible for pointwise multip
             x = x * mask
+            x = torch.sum(x, self.reduction) / (
+                eps + torch.sum(mask, self.reduction))
+        else:
+            x = torch.mean(x, self.reduction)
 
-        x = torch.sum(x, self.reduction) / (eps + torch.sum(mask,
-                                                            self.reduction))
         return x
 
 
