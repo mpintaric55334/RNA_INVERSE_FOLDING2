@@ -186,8 +186,19 @@ class EncoderOutputReduction:
             raise ValueError("Invalid reduction technique")
         self.reduction = reduction
 
-    def reduce(self, x):
-        x = torch.mean(x, self.reduction)
+    def reduce(self, x, mask=None):
+
+        # small constant to evade division by zero
+        eps = 1e-34
+
+        if mask is not None:
+            # before unsqueeze mask shape (bs,N,N)
+            mask = mask.unsqueeze(-1)
+            # after shape is (bs,N,N,1), compatible for pointwise multip
+            x = x * mask
+
+        x = torch.sum(x, self.reduction) / (eps + torch.sum(mask,
+                                                            self.reduction))
         return x
 
 
@@ -227,5 +238,5 @@ class Encoder(nn.Module):
     def forward(self, x, attn_mask=None):
         for block in self.blocks:
             x = block(x, attn_mask)
-        x = self.reduction.reduce(x)
+        x = self.reduction.reduce(x, attn_mask)
         return x

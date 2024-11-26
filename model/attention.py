@@ -13,7 +13,12 @@ def dot_product_attention(q, k, v, attn_mask=None, dropout=None):
 
     if attn_mask is not None:
         attn = attn.masked_fill(attn_mask == 0, float("-1e34"))
-        # i use a large number instead of -inf, so the softmax survives
+        """
+        A large number is used instead of softmax,
+        to prevent nan values if entire row or column is padding,
+        because entire row or column of -inf in axial attention
+        causes softmax to misbehave.
+        """
     attn = attn.softmax(dim=-1)
     if dropout is not None:
         attn = dropout(attn)
@@ -115,7 +120,7 @@ class MultiHeadAxialAttention(nn.Module):
 class MultiHeadAttention(nn.Module):
 
     """
-    Multi head attention implementation.Used for sequences
+    Multi head attention implementation. Used for sequences
     in decoder.
     """
 
@@ -158,7 +163,7 @@ class MultiHeadAttention(nn.Module):
         bs = q.shape[0]  # batch size
 
         """
-        Firstly, vectors are changde to be of dimension
+        Firstly, vectors are changed to be of dimension
         (batch size, sequence len, number of heads, head_size),
         but they are transposed to be,
         (batch_size, sequence len, head_size, number of heads),
