@@ -17,11 +17,11 @@ class ConvLayer(nn.Module):
                  out_channels: int = 256, padding="same"):
         """
         Arguments:
-            - embed_size: embedding size of the model,
+            - embed_size: int => embedding size of the model,
                           represents the input channel number
-            - kernel_size: kernel size of the convolution
-            - out_channels: number of out channels of the convolution
-            - padding: type of padding, preferably always same
+            - kernel_size: int => kernel size of the convolution
+            - out_channels: int => number of out channels of the convolution
+            - padding: str => type of padding, preferably always same
         """
         super(ConvLayer, self).__init__()
 
@@ -81,10 +81,10 @@ class AxialAttentionLayer(nn.Module):
                  dropout: float = 0.0, bias: bool = False):
         """
         Arguments:
-            - embedd_size: embedding dimension of the model
-            - num_heads: number of heads for attention
-            - dropout: attention dropout
-            - bias: should bias be added to attention
+            - embedd_size: int => embedding dimension of the model
+            - num_heads: int => number of heads for attention
+            - dropout: float => attention dropout
+            - bias: bool => should bias be added to attention
         """
 
         """
@@ -139,14 +139,14 @@ class EncoderBlock(nn.Module):
                  padding: str = "same"):
         """
         Arguments:
-            - embedd_size: embedding dim of the model
-            - num_heads: number of attention heads
-            - conv_out_channels: number of out channels for the middle
+            - embedd_size: int => embedding dim of the model
+            - num_heads: int => number of attention heads
+            - conv_out_channels: int => number of out channels for the middle
             of the convolution layer
-            - kernel_size_conv: size of convolution_kernel
-            - bias: should bias be added to attention 
-            - attention_dropout: attention dropout
-            - padding: padding for conv, for now
+            - kernel_size_conv: int => size of convolution_kernel
+            - bias: bool => should bias be added to attention
+            - attention_dropout: float => attention dropout
+            - padding: str => padding for conv, for now
              only same works
         """
         super(EncoderBlock, self).__init__()
@@ -177,7 +177,8 @@ class EncoderOutputReduction:
     def __init__(self, reduction: int | tuple[int, int]):
         """
         Arguments:
-            - reduction: type of encoder output reduction,
+            - reduction: int | tuple[int, int] => type of
+            encoder output reduction,
             1: row vise
             2: columnn wise
             (1,2): row and column wise (global average)
@@ -211,21 +212,22 @@ class Encoder(nn.Module):
 
     def __init__(self, num_blocks: int, embedd_size: int, num_heads: int,
                  conv_out_channels: int, kernel_size_conv: int,
-                 reduction: tuple, attention_dropout: float = 0.0,
+                 reduction: int | tuple[int, int],
+                 attention_dropout: float = 0.0,
                  bias=False, padding="same"):
         """
         Arguments:
-            - num_blocks: number of encoder blocks
-            - embedd_size: embedding dim of the model
-            - num_heads: number of attention heads
-            - conv_out_channels: number of out channels for the middle
+            - num_blocks: int => number of encoder blocks
+            - embedd_size: int => embedding dim of the model
+            - num_heads: int => number of attention heads
+            - conv_out_channels: int => number of out channels for the middle
             of the convolution layer
-            - kernel_size_conv: size of convolution_kernel
-            - reduction: type of encoder output reduction
-            - attention_dropout: attention dropout
-            - bias: should bias be added to attention
-            - padding: padding for conv, for now
-             only same works
+            - kernel_size_conv: int => size of convolution_kernel
+            - reduction: int | tuple(int,int) type of encoder output reduction
+            - attention_dropout: float => attention dropout
+            - bias: bool => should bias be added to attention
+            - padding: str => padding for conv, for now
+              only same works
         """
         super(Encoder, self).__init__()
 

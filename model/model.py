@@ -2,47 +2,75 @@ import torch
 import torch.nn as nn
 from encoder import Encoder
 from decoder import Decoder, PositionalEncoding
-from embedding import Embedder
+from embedding import EmbedderMatrix, EmbedderSequence
 
 
 class RNAModel(nn.Module):
 
-    def __init__(self):
+    def __init__(self, embedd_size: int, edge_types: int, bin_size: int,
+                 device: str, nucl_types: int, num_blocks_enc: int,
+                 num_heads: int, conv_out_channels: int,
+                 kernel_size_conv: int, reduction: int | tuple[int, int],
+                 attention_dropout: float, bias: bool, num_blocks_dec: int,
+                 out_dim: int, dropout: float, max_len: int):
         """
-        First class
+        Class of the whole model.
         """
         super(RNAModel, self).__init__()
-        self.embedding = Embedder(embedd_size=4, edge_types=2, bin_size=32,
-                                  device="cuda")
-        self.encoder = Encoder(num_blocks=1, embedd_size=4,
-                               num_heads=1, conv_out_channels=50,
-                               kernel_size_conv=3,
-                               reduction=1, attention_dropout=0,
-                               bias=False)
-        self.decoder = Decoder(num_blocks=1, embedd_size=4, num_heads=1,
-                               dropout=0,
-                               attention_dropout=0, attention_bias=False,
-                               fc_bias=False, fc_dropout=0)
-        self.pos_encoding = PositionalEncoding(embedd_size=4, max_len=200,
-                                               device="cuda")
+        """
+        Arguments:
+            - embedd_size: int => embedding dimension of model
+            - edge_types: int => number of possible
+            nucleotide token types. Includes embedding
+            and unknown tokens
+            - device: str => device of the model, serves
+            to create intermediate tensors on same device
+            - nucl_types: int => number of possible
+            nucleotide token types. Includes embedding
+            and unknown tokens
+            - num_blocks_enc: int => number of encoder blocks
+            - num_heads: int => number of attention heads
+            - conv_out_channels: int => number of out channels for the middle
+            of the convolution layer in encoder
+            - kernel_size_conv: int => size of convolution_kernel in conv
+            - reduction: int | tuple[int, int] => type of encoder
+            output reduction
+            - attention_dropout: float => attention dropout
+            - bias: bool => should bias be added
+            - padding: str => padding for conv in encoder, only same for now
+            - num_blocks_dec: int => number of decoder blocks
+            - num_heads: int => number of attention heads
+            - out_dim: int => number of possible predictions
+            - dropout: float => dropout after attentions in decoder
+            - max_len: int => max sequence length
+        """
+        self.embedding_matrix = EmbedderMatrix(embedd_size=embedd_size,
+                                               edge_types=edge_types,
+                                               bin_size=bin_size,
+                                               device=device)
+        self.embedding_sequence = EmbedderSequence(embedd_size=embedd_size,
+                                                   nucleotide_types=nucl_types)
+        self.encoder = Encoder(num_blocks=num_blocks_enc,
+                               embedd_size=embedd_size, num_heads=num_heads,
+                               conv_out_channels=conv_out_channels,
+                               kernel_size_conv=kernel_size_conv,
+                               reduction=reduction,
+                               attention_dropout=attention_dropout,
+                               bias=bias)
+        self.decoder = Decoder(num_blocks=num_blocks_dec,
+                               embedd_size=embedd_size, num_heads=num_heads,
+                               out_dim=out_dim, dropout=dropout,
+                               attention_dropout=attention_dropout,
+                               attention_bias=bias, fc_bias=bias,
+                               fc_dropout=dropout)
+        self.pos_encoding = PositionalEncoding(embedd_size=embedd_size,
+                                               max_len=max_len,
+                                               device=device)
 
     def forward(self, matrix, seq, attn_mask_enc=None, attn_mask_dec=None):
-        matrix = self.embedding(matrix)
+        matrix = self.embedding_matrix(matrix)
         enc = self.encoder(matrix, attn_mask_enc)
-        #  seq needs to be transformed using nn.embedding, will add
+        seq = self.embedding_sequence(seq)
         seq = self.pos_encoding(seq)
         out = self.decoder(seq, enc, attn_mask_dec, attn_mask_enc)
         return out
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-matrix = torch.randint(0, 1, (1, 4, 4)).to(device)
-seq = torch.randn((1, 4, 4)).to(device)
-attn_mask_dec = torch.tril(torch.ones(4, 4, dtype=torch.bool),
-                           diagonal=0).to(device)
-attn_mask_dec[-1, :] = False
-attn_mask_enc = torch.ones(4, 4, dtype=torch.bool).to(device)
-attn_mask_enc[-1, :] = False
-attn_mask_enc[:, -1] = False
-attn_mask_enc = attn_mask_enc.unsqueeze(0)
-model = RNAModel().to(device)
-out = model(matrix, seq, attn_mask_enc, attn_mask_dec)

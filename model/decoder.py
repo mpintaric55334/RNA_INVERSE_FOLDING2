@@ -13,11 +13,11 @@ class AttentionLayer(nn.Module):
                  attention_dropout: float = 0.0, bias: bool = False):
         """
         Arguments:
-            - embedd_size: embedd dimension of the model
-            - num_heads: number of attention heads
-            - dropout: dropout after attentions
-            - attention_dropout: dropout of attention
-            - bias: will the bias be added to attention
+            - embedd_size: int => embedd dimension of the model
+            - num_heads: int => number of attention heads
+            - dropout: float=> dropout after attentions
+            - attention_dropout: float => dropout of attention
+            - bias: bool => will the bias be added to attention
         """
         super(AttentionLayer, self).__init__()
 
@@ -42,10 +42,10 @@ class FeedForwardLayer(nn.Module):
     def __init__(self, fc_dim: int, bias: bool, dropout: float):
         """
         Arguments:
-            - fc_dim: fully connected in and out dimension,
+            - fc_dim: int => fully connected in and out dimension,
                 needs to be same because of the residual connection
-            - bias: add bias to fc layer
-            - dropout: amount of dropout added to layer
+            - bias: bool => add bias to fc layer
+            - dropout: float=> amount of dropout added to layer
         """
         super(FeedForwardLayer, self).__init__()
 
@@ -71,8 +71,8 @@ class PositionalEncoding(nn.Module):
         """
         Arguments:
             - embedd_size: int => model embedding_size
-            - max_len: max length of the sequence
-            - device: device on which the training is done
+            - max_len: int => max length of the sequence
+            - device: str => device on which the training is done
         """
 
         pe = torch.zeros(max_len, embedd_size).to(device)
@@ -106,14 +106,14 @@ class DecoderBlock(nn.Module):
                  fc_dropout: float = 0.0):
         """
         Arguments:
-            - embedd_size: embedd dimension of the model,
+            - embedd_size: int=> embedd dimension of the model,
               also the fc_dimension
-            - num_heads: number of attention heads
-            - dropout: dropout after attentions
-            - attention_dropout: dropout of attention
-            - attention_bias: will the bias be added to attention
-            - fc_bias: add bias to fc layer
-            - fc_dropout: amount of dropout added to fc_layer
+            - num_heads: int=> number of attention heads
+            - dropout: float => dropout after attentions
+            - attention_dropout: float => dropout of attention
+            - attention_bias: bool => will the bias be added to attention
+            - fc_bias: bool=> add bias to fc layer
+            - fc_dropout: float=> amount of dropout added to fc_layer
         """
         super(DecoderBlock, self).__init__()
 
@@ -124,7 +124,7 @@ class DecoderBlock(nn.Module):
                                             bias=attention_bias)
         self.cross_att = AttentionLayer(embedd_size=embedd_size,
                                         num_heads=num_heads,
-                                        dropout=attention_dropout,
+                                        dropout=dropout,
                                         attention_dropout=attention_dropout,
                                         bias=attention_bias)
         self.fc_layer = FeedForwardLayer(fc_dim=embedd_size, bias=fc_bias,
@@ -140,27 +140,48 @@ class DecoderBlock(nn.Module):
         return x
 
 
+class PredictionHead(nn.Module):
+    """
+    Class that implements the prediction head.
+    """
+    def __init__(self, embedd_size: int, out_dim: int):
+        """
+        Arguments:
+            - embedd_size: int=> embedd dimension of the model,
+            - out_dim: int => number of possible predictions
+        """
+
+        super(PredictionHead, self).__init__()
+
+        self.pred_head = nn.Linear(embedd_size, out_dim)
+
+    def forward(self, x):
+        x = self.pred_head(x)
+        return x
+
+
 class Decoder(nn.Module):
     """
     Class that implements the decoder.
     """
     def __init__(self, num_blocks: int, embedd_size: int, num_heads: int,
-                 dropout: float = 0.0,
+                 out_dim: int, dropout: float = 0.0,
                  attention_dropout: float = 0.0,
                  attention_bias: bool = False,
                  fc_bias: bool = False,
                  fc_dropout: float = 0.0):
         """
         Arguments:
-            - num_blocks: number of decoder blocks
-            - embedd_size: embedd dimension of the model,
+            - num_blocks: int => number of decoder blocks
+            - embedd_size: int => embedd dimension of the model,
               also the fc_dimension
-            - num_heads: number of attention heads
-            - dropout: dropout after attentions
-            - attention_dropout: dropout of attention
-            - attention_bias: will the bias be added to attention
-            - fc_bias: add bias to fc layer
-            - fc_dropout: amount of dropout added to fc_layer
+            - num_heads: int => number of attention heads
+            - out_dim: int => number of possible predictions
+            - dropout:float => dropout after attentions
+            - attention_dropout: float => dropout of attention
+            - attention_bias: bool => will the bias be added to attention
+            - fc_bias: bool => add bias to fc layer
+            - fc_dropout: float => amount of dropout added to fc_layer
         """
         super(Decoder, self).__init__()
 
@@ -169,9 +190,12 @@ class Decoder(nn.Module):
                          attention_bias,
                          fc_bias, fc_dropout) for _ in range(num_blocks)
                          ])
+        self.pred_head = PredictionHead(embedd_size=embedd_size,
+                                        out_dim=out_dim)
 
     def forward(self, dec_input, enc_output, attn_mask_mha=None,
                 attn_mask_cs_att=None):
         for block in self.blocks:
             x = block(dec_input, enc_output, attn_mask_mha, attn_mask_cs_att)
+        x = self.pred_head(x)
         return x

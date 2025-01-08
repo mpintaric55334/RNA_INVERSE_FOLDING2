@@ -78,9 +78,9 @@ class MultiHeadAxialAttention(nn.Module):
         Firstly, vectors are changed to be of dimension
         (batch size, row_length, column_length, number of heads, head_size),
         but they are transposed to be,
-        (batch_size, row_length, head_size, column_length, number of heads)
+        (batch_size, row_length, number of heads, column_length, head_size)
         if row attention, and
-        (batch_size, column_length, head_size, row_length, number of heads)
+        (batch_size, column_length, number of heads, row_length, head_size)
         if column attention,
         so we can do matrix multiplication
         """

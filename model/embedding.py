@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 
-class Embedder(nn.Module):
+class EmbedderMatrix(nn.Module):
     """
     Class that embedds adjacency matrix using Relative Positional
     Encoding and built-in torch nn.Embedding
@@ -23,7 +23,7 @@ class Embedder(nn.Module):
             - device: str => device of the model, serves
             to create intermediate tensors on same device
         """
-        super(Embedder, self).__init__()
+        super(EmbedderMatrix, self).__init__()
 
         self.bin_size = bin_size
 
@@ -49,3 +49,33 @@ class Embedder(nn.Module):
         positional_embedd = self.embedding_positional(self.positional_encode)
         out = binary_embedd + positional_embedd
         return out
+
+
+class EmbedderSequence(nn.Module):
+    """
+    Class that embedds sequence using built-in torch nn.Embedding
+
+    Expected input size of sequence: (batch, N)
+    Expected output size: (batch, N , embedding_dim)
+    """
+
+    def __init__(self, embedd_size: int, nucleotide_types: int):
+        """
+        Arguments:
+            - embedd_size: int => embedding dimension
+            - nucleotide_types: int => number of possible 
+            nucleotide token types. Includes embedding
+            and unknown tokens
+            - device: str => device of the model, serves
+            to create intermediate tensors on same device
+        """
+        super(EmbedderSequence, self).__init__()
+
+        self.embedding = nn.Embedding(num_embeddings=nucleotide_types,
+                                      embedding_dim=embedd_size)
+
+    def forward(self, x):
+
+        embedding = self.embedding(x)
+
+        return embedding
