@@ -29,8 +29,10 @@ class EmbedderMatrix(nn.Module):
 
         # initial embedder of the adjacency matrix
         self.embedding_binary = nn.Embedding(num_embeddings=edge_types,
-                                             embedding_dim=embedd_size)
+                                             embedding_dim=embedd_size,
+                                             padding_idx=0)
         # embedder of the relative positional matrix
+        # check for padding later
         self.embedding_positional = nn.Embedding(num_embeddings=2*bin_size+1,
                                                  embedding_dim=embedd_size)
 
@@ -72,7 +74,7 @@ class EmbedderSequence(nn.Module):
         super(EmbedderSequence, self).__init__()
 
         self.embedding = nn.Embedding(num_embeddings=nucleotide_types,
-                                      embedding_dim=embedd_size)
+                                      embedding_dim=embedd_size, padding_idx=0)
 
     def forward(self, x):
 

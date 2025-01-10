@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from attention import MultiHeadAxialAttention
+from model.attention import MultiHeadAxialAttention
 
 
 class ConvLayer(nn.Module):

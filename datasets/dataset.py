@@ -1,16 +1,15 @@
 import torch
 from torch.utils.data import Dataset
 import os
-from tokenizer import Tokenizer
+from datasets.tokenizer import Tokenizer
 import pandas as pd
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader, random_split
 
-
 """
 I need to figure out a way to make this setting global, or to make it callable in pad_collate_fn
 """
-MAX_SEQUENCE_LENGTH = 128
+MAX_SEQUENCE_LENGTH = 100
 
 
 def parse_bpseq(filename: str, cutoff_size: int):
@@ -203,7 +202,7 @@ class ArchiveiiDataset(Dataset):
         """
         self.matrices = []
         self.sequences = []
-        df = pd.read_parquet("hf://datasets/multimolecule/archiveii/test.parquet")
+        df = pd.read_parquet("/home/mpintaric/RNA_FOLDING/all_data/Archiveii/test.parquet")
         for _, row in df.iterrows():
 
             sequence = row["sequence"]
@@ -211,9 +210,9 @@ class ArchiveiiDataset(Dataset):
             sec_structure = row["secondary_structure"]
             adjacency_matrix = parse_bracket_notation(sec_structure)
             N = len(sequence)
-            if N > cutoff_size:
+            if N > cutoff_size - 1:  # important to prevent overflow, discuss later
                 continue
-            tokenized_sequence, mask = tokenize(sequence)
+            tokenized_sequence = tokenize(sequence)
             self.matrices.append(adjacency_matrix)
             self.sequences.append(tokenized_sequence)
 
@@ -233,8 +232,8 @@ def pad_collate_fn(batch):
     """
     padded_sequences = []
     loss_masks = []
-    encoder_masks = []
-    decoder_masks = []
+    decoder_cs_att_masks = []
+    decoder_mha_masks = []
     padded_matrices = []
     for matrix, seq in batch:
         # pad sequence
@@ -251,29 +250,33 @@ def pad_collate_fn(batch):
             else:
                 loss_mask.append(0)
         loss_masks.append(torch.Tensor(loss_mask))
-        # create encoder mask
-        encoder_mask = torch.zeros((MAX_SEQUENCE_LENGTH, MAX_SEQUENCE_LENGTH))
-        encoder_mask[:N, :N] = torch.ones((N, N))
-        encoder_masks.append(encoder_mask)
+        # create decoder_cs_att_mask
+        decoder_cs_att_mask = torch.zeros((MAX_SEQUENCE_LENGTH,
+                                           MAX_SEQUENCE_LENGTH))
+        decoder_cs_att_mask[:N, :N] = torch.ones((N, N))
+        decoder_cs_att_masks.append(decoder_cs_att_mask)
         # create decoder mask
         decoder_mask = torch.zeros((MAX_SEQUENCE_LENGTH, MAX_SEQUENCE_LENGTH))
         decoder_mask[:N, :N] = torch.tril(torch.ones(N, N, dtype=torch.bool),
                                           diagonal=0)
-        decoder_masks.append(decoder_mask)
+        decoder_mha_masks.append(decoder_mask)
         # pad matrix
         padded_matrix = torch.zeros((MAX_SEQUENCE_LENGTH, MAX_SEQUENCE_LENGTH))
-        padded_matrix[:N, :N] = torch.Tensor(matrix)
+        padded_matrix[1:N, 1:N] = torch.Tensor(matrix)
         padded_matrices.append(padded_matrix)
 
-    padded_sequences = torch.stack(padded_sequences)
-    loss_masks = torch.stack(loss_masks)
-    encoder_masks = torch.stack(encoder_masks)
-    decoder_masks = torch.stack(decoder_masks)
-    padded_matrices = torch.stack(padded_matrices)
+    padded_sequences = torch.stack(padded_sequences).type(torch.long)
+    loss_masks = torch.stack(loss_masks).type(torch.long)
+    decoder_cs_att_masks = torch.stack(decoder_cs_att_masks)
+    decoder_mha_masks = torch.stack(decoder_mha_masks)
+    padded_matrices = torch.stack(padded_matrices).type(torch.long)
+    encoder_masks = decoder_cs_att_masks.clone().detach()
+    encoder_masks[:, 0, :] = 0
+    encoder_masks[:, :, 0] = 0
 
     return (
         padded_sequences, padded_matrices, loss_masks,
-        encoder_masks, decoder_masks
+        decoder_cs_att_masks, decoder_mha_masks, encoder_masks
     )
 
 
