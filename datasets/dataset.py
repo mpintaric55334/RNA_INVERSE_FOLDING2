@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader, random_split
 """
 I need to figure out a way to make this setting global, or to make it callable in pad_collate_fn
 """
-MAX_SEQUENCE_LENGTH = 100
+MAX_SEQUENCE_LENGTH = 200
 
 
 def parse_bpseq(filename: str, cutoff_size: int):
@@ -280,7 +280,7 @@ def pad_collate_fn(batch):
     )
 
 
-class BPSeqDataModule(pl.LightningDataModule):
+class RNADataModule(pl.LightningDataModule):
 
     def __init__(self, batch_size: int = 32, split_ratio: float = 0.8,
                  cutoff_size: int = MAX_SEQUENCE_LENGTH,):
@@ -289,24 +289,29 @@ class BPSeqDataModule(pl.LightningDataModule):
         self.batch_size = batch_size
         self.split_ratio = split_ratio
 
-    def setup(self):
+    def setup(self, stage):
         # Create the dataset
         full_dataset = ArchiveiiDataset(cutoff_size=self.cutoff_size)
         train_size = int(self.split_ratio * len(full_dataset))
         val_size = len(full_dataset) - train_size
-        self.train_dataset, self.val_dataset = random_split(full_dataset,
-                                                            [train_size,
-                                                             val_size])
+        self.train_dataset, val_dataset = random_split(full_dataset,
+                                                       [train_size, val_size])
+        test_size = val_size // 2
+        val_size = val_size - test_size
+        self.val_dataset, self.test_dataset = random_split(val_dataset,
+                                                           [val_size,
+                                                            test_size])
 
     def train_dataloader(self):
         return DataLoader(self.train_dataset, batch_size=self.batch_size,
-                          shuffle=True, collate_fn=pad_collate_fn)
+                          shuffle=True, collate_fn=pad_collate_fn,
+                          num_workers=15)
 
     def val_dataloader(self):
         return DataLoader(self.val_dataset, batch_size=self.batch_size,
                           collate_fn=pad_collate_fn)
 
-    def test_dataloader(self):
+    def predict_dataloader(self):
         # placeholder
-        return DataLoader(self.val_dataset, batch_size=self.batch_size,
+        return DataLoader(self.test_dataset, batch_size=self.batch_size,
                           collate_fn=pad_collate_fn)
