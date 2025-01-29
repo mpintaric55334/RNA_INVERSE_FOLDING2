@@ -1,10 +1,10 @@
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, Subset
 import os
 from datasets.tokenizer import Tokenizer
 import pandas as pd
 import pytorch_lightning as pl
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader
 
 """
 I need to figure out a way to make this setting global, or to make it callable in pad_collate_fn
@@ -195,16 +195,23 @@ class ArchiveiiDataset(Dataset):
     Custom torch dataset for ArchiveiiDataset.
     """
 
-    def __init__(self, cutoff_size: int = 256):
+    def __init__(self, train_id: str, val_id: str, test_id: str,
+                 cutoff_size: int = 256, ):
         """
         Arguments:
             - cutoff_size: int => max size of sequence
+            - train_id, val_id, test_id: list[str] => list of chosen id's
         """
         self.matrices = []
         self.sequences = []
-        df = pd.read_parquet("/home/mpintaric/RNA_FOLDING/all_data/Archiveii/test.parquet")
-        for _, row in df.iterrows():
+        self.train_indices = []
+        self.val_indices = []
+        self.test_indices = []
 
+        df = pd.read_parquet("/home/mpintaric/RNA_FOLDING/all_data/Archiveii/test.parquet")
+        idx = 0
+        for _, row in df.iterrows():
+            id = row["id"]
             sequence = row["sequence"]
             sequence = sequence.replace("T", "U")
             sec_structure = row["secondary_structure"]
@@ -216,6 +223,14 @@ class ArchiveiiDataset(Dataset):
             self.matrices.append(adjacency_matrix)
             self.sequences.append(tokenized_sequence)
 
+            if id in train_id:
+                self.train_indices.append(idx)
+            if id in val_id:
+                self.val_indices.append(idx)
+            if id in test_id:
+                self.test_indices.append(idx)
+            idx += 1
+
     def __len__(self):
 
         return len(self.matrices)
@@ -223,6 +238,15 @@ class ArchiveiiDataset(Dataset):
     def __getitem__(self, idx):
 
         return self.matrices[idx], self.sequences[idx]
+
+    def get_train_set(self):
+        return Subset(self, self.train_indices)
+
+    def get_val_set(self):
+        return Subset(self, self.val_indices)
+
+    def get_test_set(self):
+        return Subset(self, self.test_indices)
 
 
 def pad_collate_fn(batch):
@@ -282,25 +306,25 @@ def pad_collate_fn(batch):
 
 class RNADataModule(pl.LightningDataModule):
 
-    def __init__(self, batch_size: int = 32, split_ratio: float = 0.8,
+    def __init__(self, train_id, val_id, test_id, batch_size: int = 32,
+                 split_ratio: float = 0.8,
                  cutoff_size: int = MAX_SEQUENCE_LENGTH,):
         super().__init__()
         self.cutoff_size = cutoff_size
         self.batch_size = batch_size
         self.split_ratio = split_ratio
+        self.train_id = train_id
+        self.val_id = val_id
+        self.test_id = test_id
 
     def setup(self, stage):
         # Create the dataset
-        full_dataset = ArchiveiiDataset(cutoff_size=self.cutoff_size)
-        train_size = int(self.split_ratio * len(full_dataset))
-        val_size = len(full_dataset) - train_size
-        self.train_dataset, val_dataset = random_split(full_dataset,
-                                                       [train_size, val_size])
-        test_size = val_size // 2
-        val_size = val_size - test_size
-        self.val_dataset, self.test_dataset = random_split(val_dataset,
-                                                           [val_size,
-                                                            test_size])
+        full_dataset = ArchiveiiDataset(self.train_id, self.val_id,
+                                        self.test_id,
+                                        cutoff_size=self.cutoff_size)
+        self.train_dataset = full_dataset.get_train_set()
+        self.val_dataset = full_dataset.get_val_set()
+        self.test_dataset = full_dataset.get_test_set()
 
     def train_dataloader(self):
         return DataLoader(self.train_dataset, batch_size=self.batch_size,
@@ -309,9 +333,8 @@ class RNADataModule(pl.LightningDataModule):
 
     def val_dataloader(self):
         return DataLoader(self.val_dataset, batch_size=self.batch_size,
-                          collate_fn=pad_collate_fn)
+                          collate_fn=pad_collate_fn, num_workers=15)
 
     def predict_dataloader(self):
-        # placeholder
         return DataLoader(self.test_dataset, batch_size=self.batch_size,
-                          collate_fn=pad_collate_fn)
+                          collate_fn=pad_collate_fn, num_workers=15)
