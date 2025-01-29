@@ -54,7 +54,17 @@ class ThunderModel(pl.LightningModule):
         loss = self._common_loss_step(batch, batch_idx)
         self.log_dict({"validation_loss": loss}, on_step=False, on_epoch=True,
                       prog_bar=True)
+        self._common_test_step(batch, batch_idx)
         return loss
+
+    def on_validation_epoch_end(self):
+
+        accuracy = self.accuracy.compute()
+
+        self.log("validation_accuracy", accuracy, on_step=False, on_epoch=True,
+                 prog_bar=True)
+
+        self.accuracy.reset()
 
     def predict_step(self, batch, batch_idx):
         self._common_test_step(batch, batch_idx)

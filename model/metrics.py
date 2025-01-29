@@ -14,8 +14,12 @@ class Accuracy(Metric):
         preds = preds[:, 1:]
         true = true[:, 1:]
         true = true * mask
-        self.correct = torch.sum((preds == true) & (true != 0))
-        self.total = torch.sum(true != 0)
+        self.correct += torch.sum((preds == true) & (true != 0))
+        self.total += torch.sum(true != 0)
 
     def compute(self):
         return self.correct.float()/self.total.float()
+
+    def reset(self):
+        self.correct = torch.tensor(0, dtype=torch.float, device="cuda")
+        self.total = torch.tensor(0, dtype=torch.float, device="cuda")
