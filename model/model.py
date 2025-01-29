@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
-from encoder import Encoder
-from decoder import Decoder, PositionalEncoding
-from embedding import EmbedderMatrix, EmbedderSequence
+from model.encoder import Encoder
+from model.decoder import Decoder, PositionalEncoding
+from model.embedding import EmbedderMatrix, EmbedderSequence
 
 
 class RNAModel(nn.Module):
@@ -67,10 +67,11 @@ class RNAModel(nn.Module):
                                                max_len=max_len,
                                                device=device)
 
-    def forward(self, matrix, seq, attn_mask_enc=None, attn_mask_dec=None):
+    def forward(self, matrix, seq, attn_mask_enc=None, attn_mask_dec_mha=None,
+                attn_mask_dec_csat=None):
         matrix = self.embedding_matrix(matrix)
         enc = self.encoder(matrix, attn_mask_enc)
         seq = self.embedding_sequence(seq)
         seq = self.pos_encoding(seq)
-        out = self.decoder(seq, enc, attn_mask_dec, attn_mask_enc)
+        out = self.decoder(seq, enc, attn_mask_dec_mha, attn_mask_dec_csat)
         return out

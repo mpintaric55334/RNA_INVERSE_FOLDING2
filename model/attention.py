@@ -3,7 +3,8 @@ import torch.nn as nn
 import math
 
 
-def dot_product_attention(q, k, v, attn_mask=None, dropout=None):
+def dot_product_attention(q, k, v, attn_mask=None, dropout=None,
+                          attention_1d=False):
     """
     Function that computes dot product attention between
     query, key, value vectors
@@ -12,6 +13,8 @@ def dot_product_attention(q, k, v, attn_mask=None, dropout=None):
     attn = torch.matmul(q, k.transpose(-1, -2)) / math.sqrt(c)
 
     if attn_mask is not None:
+        if attention_1d:
+            attn_mask = attn_mask.unsqueeze(1)
         attn = attn.masked_fill(attn_mask == 0, -1e34)
         """
         A large number is used instead of softmax,
@@ -176,7 +179,8 @@ class MultiHeadAttention(nn.Module):
         v = self.to_v(v).view(bs, -1,
                               self.num_heads, self.c_head).transpose(-2, -3)
         output, attn = dot_product_attention(q, k, v, attn_mask,
-                                             self.attention_dropout)
+                                             self.attention_dropout,
+                                             attention_1d=True)
         output = output.transpose(-2, -3).contiguous().view(bs, -1,
                                                             self.num_heads *
                                                             self.c_head)

@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from attention import MultiHeadAttention
+from model.attention import MultiHeadAttention
 
 
 class AttentionLayer(nn.Module):
